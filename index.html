@@ -1,0 +1,3038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <title>SLUGGER BRAWL: Grand Slam Showdown - 3D Baseball × Boxing Arcade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Teko:wght@600;700&family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #ff1850;
+      --primary-glow: rgba(255, 24, 80, 0.65);
+      --secondary: #00f0ff;
+      --secondary-glow: rgba(0, 240, 255, 0.65);
+      --accent: #ffe500;
+      --accent-glow: rgba(255, 229, 0, 0.7);
+      --dark-bg: #060811;
+      --panel-bg: rgba(10, 14, 28, 0.88);
+      --panel-border: rgba(45, 62, 105, 0.7);
+      --font-display: 'Teko', 'Impact', sans-serif;
+      --font-body: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--dark-bg);
+      font-family: var(--font-body);
+      color: #ffffff;
+    }
+
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Screen vignette & arcade scanlines overlay */
+    #vignette-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+      background: radial-gradient(circle at center, transparent 40%, rgba(3, 5, 12, 0.75) 100%);
+      box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
+    }
+
+    /* Main UI Layer */
+    #ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    /* Top Jumbotron / Scoreboard */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 12px 18px;
+      gap: 12px;
+    }
+
+    .scoreboard {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-top: 3px solid var(--secondary);
+      border-radius: 12px;
+      padding: 8px 18px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 240, 255, 0.2);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      gap: 22px;
+    }
+
+    .score-block {
+      text-align: center;
+    }
+
+    .score-label {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: #8c9ebb;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 1px;
+    }
+
+    .score-val {
+      font-family: var(--font-display);
+      font-size: 32px;
+      line-height: 1;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+    }
+
+    .score-runs {
+      font-size: 42px;
+      color: var(--accent);
+      text-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .outs-container {
+      display: flex;
+      gap: 6px;
+      margin-top: 5px;
+      justify-content: center;
+    }
+
+    .out-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #171f33;
+      border: 2px solid #374668;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .out-dot.active {
+      background: var(--primary);
+      box-shadow: 0 0 12px var(--primary);
+      border-color: #ff99b0;
+      transform: scale(1.2);
+    }
+
+    /* Diamond Mini-map */
+    .diamond-hud {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      transform: rotate(45deg);
+      margin: 6px;
+    }
+
+    .base-marker {
+      position: absolute;
+      width: 13px;
+      height: 13px;
+      background: #1c263d;
+      border: 1.5px solid #4a5c88;
+      border-radius: 2px;
+      transition: all 0.35s ease;
+    }
+
+    .base-marker.active {
+      background: var(--accent);
+      border-color: #ffffff;
+      box-shadow: 0 0 16px var(--accent-glow);
+      transform: scale(1.25);
+    }
+
+    .base-1st { top: 0; right: 0; }
+    .base-2nd { top: 0; left: 0; }
+    .base-3rd { bottom: 0; left: 0; }
+    .base-home { bottom: 0; right: 0; background: #55627a; }
+
+    /* Top Right Buttons */
+    .nav-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      color: #e3ecfc;
+      padding: 9px 15px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      font-family: var(--font-body);
+      transition: all 0.2s;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-icon:hover {
+      background: #1e2842;
+      border-color: var(--secondary);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 240, 255, 0.35);
+      color: #fff;
+    }
+
+    .btn-icon:active {
+      transform: translateY(1px);
+    }
+
+    /* Fight HUD (Activated in Bout State) */
+    #fight-hud {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      padding: 0 20px;
+      margin-top: 5px;
+    }
+
+    .fighters-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 950px;
+      gap: 16px;
+    }
+
+    .fighter-card {
+      flex: 1;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 10px 16px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .fighter-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+    }
+
+    .fighter-card.player::before {
+      background: linear-gradient(90deg, var(--secondary), transparent);
+    }
+
+    .fighter-card.enemy::before {
+      background: linear-gradient(90deg, transparent, var(--primary));
+    }
+
+    .fighter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+
+    .fighter-name {
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+    }
+
+    .fighter-hp-val {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* Ghost health bars (instant drop + trailing catch-up bar) */
+    .health-bar-container {
+      width: 100%;
+      height: 18px;
+      background: #101422;
+      border-radius: 9px;
+      overflow: hidden;
+      border: 1px solid #2f3b5c;
+      position: relative;
+    }
+
+    .health-bar-ghost {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 100%;
+      background: #ffb700;
+      transition: width 0.65s cubic-bezier(0.25, 1, 0.5, 1);
+      border-radius: 8px;
+    }
+
+    .health-bar-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #ff2a5f, #ff6b3d);
+      transition: width 0.15s ease-out;
+      border-radius: 8px;
+      z-index: 2;
+    }
+
+    .health-bar-fill.blue {
+      background: linear-gradient(90deg, #00d2ff, #0084ff);
+    }
+
+    .round-timer-box {
+      background: #0f1426;
+      border: 3px solid var(--accent);
+      border-radius: 50%;
+      width: 68px;
+      height: 68px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 0 25px var(--accent-glow);
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .timer-sec {
+      font-family: var(--font-display);
+      font-size: 38px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 0.9;
+    }
+
+    .timer-lbl {
+      font-size: 8px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+
+    /* Combo & Status Meter */
+    #combo-meter {
+      margin-top: 6px;
+      font-family: var(--font-display);
+      font-size: 26px;
+      letter-spacing: 2px;
+      color: var(--accent);
+      text-shadow: 0 0 15px var(--accent-glow);
+      opacity: 0;
+      transform: scale(0.8);
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    #combo-meter.show {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+
+    /* Big Center Banner / Alerts */
+    #center-banner {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      text-align: center;
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    #center-banner.show {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+
+    .banner-title {
+      font-family: var(--font-display);
+      font-size: 88px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: #fff;
+      text-shadow: 0 0 35px var(--primary-glow), 0 5px 0 #73031f;
+      -webkit-text-stroke: 2px var(--primary);
+      text-transform: uppercase;
+      line-height: 0.95;
+    }
+
+    .banner-subtitle {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 3px;
+      margin-top: 4px;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+      text-transform: uppercase;
+    }
+
+    /* Floating combat text layer */
+    #combat-text-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 15;
+      overflow: hidden;
+    }
+
+    .floating-text {
+      position: absolute;
+      font-family: var(--font-display);
+      font-size: 38px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #fff;
+      text-shadow: 0 0 15px rgba(0,0,0,0.9), 0 2px 0 #000;
+      animation: floatUp 0.8s ease-out forwards;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    @keyframes floatUp {
+      0% { transform: translate(-50%, 0) scale(0.6); opacity: 0; }
+      20% { transform: translate(-50%, -20px) scale(1.2); opacity: 1; }
+      80% { transform: translate(-50%, -50px) scale(1.0); opacity: 0.9; }
+      100% { transform: translate(-50%, -75px) scale(0.85); opacity: 0; }
+    }
+
+    /* Batting Pitch Timing Gauge */
+    #pitch-gauge {
+      display: none;
+      position: absolute;
+      top: 52%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 240px;
+      height: 240px;
+      pointer-events: none;
+    }
+
+    .gauge-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 3px dashed rgba(0, 240, 255, 0.7);
+      animation: rotateGauge 8s linear infinite;
+    }
+
+    @keyframes rotateGauge {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .gauge-sweet-spot {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 66px;
+      height: 66px;
+      border-radius: 50%;
+      border: 3px solid var(--accent);
+      background: rgba(255, 229, 0, 0.2);
+      box-shadow: 0 0 30px var(--accent-glow);
+    }
+
+    .gauge-reticle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 190px;
+      height: 190px;
+      border-radius: 50%;
+      border: 3px solid var(--primary);
+      box-shadow: 0 0 20px var(--primary-glow);
+      transition: width 0.05s linear, height 0.05s linear;
+    }
+
+    /* Bottom Controls Bar & Hints */
+    .bottom-bar {
+      padding: 14px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .instructions-pill {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 30px;
+      padding: 8px 24px;
+      font-size: 13px;
+      color: #cad8ee;
+      letter-spacing: 0.8px;
+      text-align: center;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+    }
+
+    .key-badge {
+      display: inline-block;
+      background: #202b45;
+      border: 1px solid #4a5c88;
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      margin: 0 2px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    }
+
+    /* Virtual action buttons */
+    .virtual-controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .action-btn {
+      background: linear-gradient(180deg, #1f2a47 0%, #11172a 100%);
+      border: 1.5px solid #3c4f7a;
+      color: #fff;
+      padding: 12px 22px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-family: var(--font-body);
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      min-width: 95px;
+      text-align: center;
+      transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    }
+
+    .action-btn:hover {
+      border-color: var(--secondary);
+      background: #2b395d;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 240, 255, 0.3);
+    }
+
+    .action-btn:active {
+      transform: translateY(2px);
+      background: var(--primary);
+      border-color: #ff7595;
+    }
+
+    .btn-super {
+      background: linear-gradient(180deg, #ff1850 0%, #9e0c30 100%);
+      border-color: #ff7595;
+      color: #fff;
+      font-weight: 900;
+      box-shadow: 0 0 20px var(--primary-glow);
+    }
+
+    .btn-swing {
+      background: linear-gradient(180deg, #00f0ff 0%, #007799 100%);
+      border-color: #70f7ff;
+      color: #04121d;
+      font-weight: 900;
+      font-size: 19px;
+      padding: 14px 40px;
+      box-shadow: 0 0 25px var(--secondary-glow);
+    }
+
+    /* Modal / Dialog */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(4, 6, 14, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .modal-card {
+      background: #0d1326;
+      border: 2px solid #29375e;
+      border-top: 4px solid var(--primary);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 50px rgba(255, 24, 80, 0.25);
+      border-radius: 18px;
+      padding: 32px 36px;
+      max-width: 620px;
+      width: 90%;
+      text-align: center;
+      position: relative;
+    }
+
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: 64px;
+      color: #fff;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+      line-height: 0.95;
+      text-shadow: 0 0 25px var(--primary-glow);
+    }
+
+    .modal-subtitle {
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin-bottom: 18px;
+    }
+
+    .difficulty-selector {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .diff-btn {
+      background: #141c33;
+      border: 1.5px solid #2e3e68;
+      color: #9cb0d1;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .diff-btn.active {
+      background: var(--secondary);
+      color: #04121d;
+      border-color: #fff;
+      box-shadow: 0 0 15px var(--secondary-glow);
+    }
+
+    .modal-rules {
+      font-size: 13px;
+      color: #b7c7df;
+      line-height: 1.6;
+      margin-bottom: 24px;
+      text-align: left;
+      background: #080b17;
+      border-radius: 12px;
+      padding: 16px 20px;
+      border: 1px solid #1f2a48;
+    }
+
+    .modal-rules li {
+      margin-bottom: 8px;
+      list-style-type: none;
+      position: relative;
+      padding-left: 20px;
+    }
+
+    .modal-rules li::before {
+      content: '⚡';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+
+    .btn-start {
+      background: linear-gradient(90deg, #ff1850, #ff5e36);
+      border: none;
+      color: #fff;
+      font-family: var(--font-display);
+      font-size: 32px;
+      letter-spacing: 2px;
+      padding: 12px 48px;
+      border-radius: 35px;
+      cursor: pointer;
+      box-shadow: 0 0 35px var(--primary-glow);
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: inline-block;
+    }
+
+    .btn-start:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 45px rgba(255, 24, 80, 0.9);
+    }
+
+    /* Screen shake on heavy punch or bat crack */
+    .screen-shake {
+      animation: heavyShake 0.25s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    @keyframes heavyShake {
+      10%, 90% { transform: translate3d(-3px, 1px, 0); }
+      20%, 80% { transform: translate3d(4px, -2px, 0); }
+      30%, 50%, 70% { transform: translate3d(-6px, 3px, 0); }
+      40%, 60% { transform: translate3d(6px, -3px, 0); }
+    }
+
+    /* Flash filter on hit or counter */
+    .screen-flash {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.35);
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.15s ease-out;
+    }
+
+    .screen-flash.active {
+      opacity: 1;
+    }
+  </style>
+
+  <!-- Local Three.js library with CDN fallback -->
+  <script src="js/three.min.js"></script>
+  <script>
+    if (typeof THREE === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+    }
+  </script>
+</head>
+<body>
+
+  <!-- WebGL Render Canvas Container -->
+  <div id="canvas-container"></div>
+  <div id="vignette-overlay"></div>
+  <div id="screen-flash" class="screen-flash"></div>
+
+  <!-- Combat Floating Text Canvas -->
+  <div id="combat-text-container"></div>
+
+  <!-- UI Overlay -->
+  <div id="ui-layer">
+    <!-- Top Jumbotron Scoreboard -->
+    <div class="top-bar">
+      <div class="scoreboard interactive">
+        <div class="score-block">
+          <div class="score-label">INNING</div>
+          <div class="score-val" id="hud-inning">TOP 1</div>
+        </div>
+        <div class="score-block">
+          <div class="score-label">OUTS</div>
+          <div class="outs-container" id="hud-outs">
+            <div class="out-dot" id="out-1"></div>
+            <div class="out-dot" id="out-2"></div>
+            <div class="out-dot" id="out-3"></div>
+          </div>
+        </div>
+        <div class="score-block">
+          <div class="score-label">RUNS</div>
+          <div class="score-val score-runs" id="hud-runs">0</div>
+        </div>
+        <div class="diamond-hud" title="Diamond Base Runners">
+          <div class="base-marker base-1st" id="base-1"></div>
+          <div class="base-marker base-2nd" id="base-2"></div>
+          <div class="base-marker base-3rd" id="base-3"></div>
+          <div class="base-marker base-home"></div>
+        </div>
+      </div>
+
+      <div class="nav-buttons interactive">
+        <button class="btn-icon" id="btn-audio">🔊 AUDIO</button>
+        <button class="btn-icon" id="btn-cam">🎥 CAM</button>
+        <button class="btn-icon" id="btn-help">❓ HELP</button>
+      </div>
+    </div>
+
+    <!-- Fight HUD (Activated in Bout State) -->
+    <div id="fight-hud">
+      <div class="fighters-bar interactive">
+        <!-- Player Card -->
+        <div class="fighter-card player">
+          <div class="fighter-header">
+            <span class="fighter-name" style="color:var(--secondary);">BATTER (YOU)</span>
+            <span class="fighter-hp-val" id="player-hp-txt">100 HP</span>
+          </div>
+          <div class="health-bar-container">
+            <div class="health-bar-ghost" id="player-hp-ghost" style="width: 100%;"></div>
+            <div class="health-bar-fill blue" id="player-hp-fill" style="width: 100%;"></div>
+          </div>
+        </div>
+
+        <!-- Bout Timer -->
+        <div class="round-timer-box">
+          <div class="timer-sec" id="round-clock">15</div>
+          <div class="timer-lbl">ROUND</div>
+        </div>
+
+        <!-- Opponent Card -->
+        <div class="fighter-card enemy">
+          <div class="fighter-header">
+            <span class="fighter-name" style="color:var(--primary);">PITCHER "THE ARSONIST"</span>
+            <span class="fighter-hp-val" id="enemy-hp-txt">100 HP</span>
+          </div>
+          <div class="health-bar-container">
+            <div class="health-bar-ghost" id="enemy-hp-ghost" style="width: 100%;"></div>
+            <div class="health-bar-fill" id="enemy-hp-fill" style="width: 100%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Combo Multiplier Display -->
+      <div id="combo-meter">COMBO 3x • 1.3x DAMAGE</div>
+    </div>
+
+    <!-- Pitch Timing Gauge -->
+    <div id="pitch-gauge">
+      <div class="gauge-ring"></div>
+      <div class="gauge-sweet-spot"></div>
+      <div class="gauge-reticle" id="pitch-reticle"></div>
+    </div>
+
+    <!-- Giant Center Banner -->
+    <div id="center-banner">
+      <div class="banner-title" id="banner-text">CLASH!</div>
+      <div class="banner-subtitle" id="banner-sub">BRAWL IN THE BATTER'S BOX!</div>
+    </div>
+
+    <!-- Bottom Controls & Hints -->
+    <div class="bottom-bar">
+      <div class="instructions-pill" id="instructions-hint">
+        Press <span class="key-badge">SPACE</span> or tap <span class="key-badge">SWING</span> when pitch enters the sweet spot!
+      </div>
+
+      <!-- Virtual Controls for Touch and Mouse -->
+      <div class="virtual-controls interactive" id="controls-bar">
+        <button class="action-btn btn-swing" id="btn-action-swing">⚾ SWING BAT</button>
+        <button class="action-btn" id="btn-action-jab" style="display:none;">🥊 JAB (A)</button>
+        <button class="action-btn" id="btn-action-cross" style="display:none;">💥 HOOK (D)</button>
+        <button class="action-btn" id="btn-action-block" style="display:none;">🛡️ BLOCK (S)</button>
+        <button class="action-btn" id="btn-action-dodge" style="display:none;">⚡ SLIP (W)</button>
+        <button class="action-btn btn-super" id="btn-action-super" style="display:none;">⭐ SUPER (SPC)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Start / Help Modal -->
+  <div class="modal-overlay" id="start-modal">
+    <div class="modal-card">
+      <div class="modal-title">SLUGGER BRAWL</div>
+      <div class="modal-subtitle">GRAND SLAM SHOWDOWN</div>
+
+      <div class="difficulty-selector">
+        <button class="diff-btn active" data-diff="rookie">ROOKIE</button>
+        <button class="diff-btn" data-diff="pro">PRO</button>
+        <button class="diff-btn" data-diff="allstar">ALL-STAR</button>
+      </div>
+
+      <ul class="modal-rules">
+        <li><strong>Step 1: The Pitch</strong> — Watch the pitcher wind up! When the ball enters the strike zone ring, press <strong>SPACE</strong> or tap <strong>SWING</strong> to trigger the CLASH!</li>
+        <li><strong>Step 2: The Bout</strong> — 15 seconds of intense ringside combat at Home Plate:
+          <br>• <span class="key-badge">A</span> Left Jab (Quick, builds combo) | <span class="key-badge">D</span> Right Power Hook (High damage)
+          <br>• <span class="key-badge">S</span> Guard Block (Absorbs 80% damage) | <span class="key-badge">W</span> Slip Dodge (Triggers Slow-Mo Counter!)
+          <br>• <span class="key-badge">SPACE</span> Grand Slam Super KO Uppercut!
+        </li>
+        <li><strong>Step 3: Diamond Scoring Tie-In:</strong>
+          <br>• <strong>Knocked Out / Depleted:</strong> <em>OUT! (3 outs advances the inning)</em>
+          <br>• <strong>Minor Damage Win (Opponent HP 25-50%):</strong> <em>SINGLE (1 Base)</em>
+          <br>• <strong>Heavy Damage Win (Opponent HP &lt; 25%):</strong> <em>DOUBLE (2 Bases)</em>
+          <br>• <strong>Knockout (KO):</strong> <em>TRIPLE (3 Bases)</em>
+          <br>• <strong>Clean Knockout (&gt;75% HP):</strong> <em>HOME RUN (Grand Slam)!</em>
+        </li>
+      </ul>
+
+      <button class="btn-start interactive" id="btn-play">PLAY BALL!</button>
+    </div>
+  </div>
+
+  <!-- Sound & Announcer Synthesizer (Web Audio + Speech Synthesis) -->
+  <script>
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+        this.announcerEnabled = true;
+        this.synth = window.speechSynthesis || null;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      speak(text) {
+        if (!this.announcerEnabled || !this.synth) return;
+        try {
+          this.synth.cancel(); // Stop any pending speech
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 1.15;
+          utterance.pitch = 1.05;
+          utterance.volume = 0.85;
+          this.synth.speak(utterance);
+        } catch (e) {
+          console.warn('[Announcer] speech failed:', e);
+        }
+      }
+
+      playOrganChime() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        // Classic "Charge!" chord progression: C4, E4, G4, C5
+        const notes = [261.63, 329.63, 392.00, 523.25];
+        const times = [0, 0.12, 0.24, 0.38];
+        const durations = [0.10, 0.10, 0.10, 0.5];
+
+        notes.forEach((freq, i) => {
+          const t = now + times[i];
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.25, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + durations[i]);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + durations[i]);
+        });
+      }
+
+      playBatCrack() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(360, now);
+        osc.frequency.exponentialRampToValueAtTime(55, now + 0.14);
+        gain.gain.setValueAtTime(1.0, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.16);
+
+        // Sub bass thump
+        const sub = this.ctx.createOscillator();
+        const subGain = this.ctx.createGain();
+        sub.type = 'sine';
+        sub.frequency.setValueAtTime(90, now);
+        sub.frequency.exponentialRampToValueAtTime(30, now + 0.22);
+        subGain.gain.setValueAtTime(0.8, now);
+        subGain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+        sub.connect(subGain);
+        subGain.connect(this.ctx.destination);
+        sub.start(now);
+        sub.stop(now + 0.22);
+
+        // White noise crunch
+        const bufferSize = Math.floor(this.ctx.sampleRate * 0.12);
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+        const whiteNoise = this.ctx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.8, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.11);
+        whiteNoise.connect(noiseGain);
+        noiseGain.connect(this.ctx.destination);
+        whiteNoise.start(now);
+      }
+
+      playWhoosh() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.exponentialRampToValueAtTime(460, now + 0.25);
+        osc.frequency.exponentialRampToValueAtTime(110, now + 0.45);
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.35, now + 0.2);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.45);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      }
+
+      playBell() {
+        if (!this.enabled || !this.ctx) return;
+        const strikes = [0, 0.22, 0.44];
+        strikes.forEach(timeOffset => {
+          const now = this.ctx.currentTime + timeOffset;
+          const osc1 = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(1250, now);
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(1880, now);
+
+          gain.gain.setValueAtTime(0.7, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 0.85);
+          osc2.stop(now + 0.85);
+        });
+      }
+
+      playPunch(isHeavy = false, isCrit = false) {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = isCrit ? 'sawtooth' : (isHeavy ? 'square' : 'triangle');
+        const startFreq = isCrit ? 320 : (isHeavy ? 200 : 280);
+        const endFreq = isHeavy ? 35 : 55;
+        osc.frequency.setValueAtTime(startFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(endFreq, now + (isHeavy ? 0.24 : 0.15));
+
+        gain.gain.setValueAtTime(isCrit ? 1.0 : (isHeavy ? 0.9 : 0.65), now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + (isHeavy ? 0.26 : 0.16));
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + (isHeavy ? 0.26 : 0.16));
+
+        if (isHeavy || isCrit) {
+          const sub = this.ctx.createOscillator();
+          const subG = this.ctx.createGain();
+          sub.type = 'sine';
+          sub.frequency.setValueAtTime(110, now);
+          sub.frequency.exponentialRampToValueAtTime(25, now + 0.25);
+          subG.gain.setValueAtTime(0.8, now);
+          subG.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+          sub.connect(subG);
+          subG.connect(this.ctx.destination);
+          sub.start(now);
+          sub.stop(now + 0.25);
+        }
+      }
+
+      playBlock() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(130, now);
+        osc.frequency.exponentialRampToValueAtTime(45, now + 0.12);
+        gain.gain.setValueAtTime(0.6, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.14);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.14);
+      }
+
+      playCheer() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const bufferSize = Math.floor(this.ctx.sampleRate * 2.0);
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = noiseBuffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(750, now);
+        filter.frequency.linearRampToValueAtTime(1550, now + 0.9);
+        filter.frequency.linearRampToValueAtTime(500, now + 2.0);
+        filter.Q.value = 2.0;
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.65, now + 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 2.0);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        noise.start(now);
+      }
+
+      playBuzzer() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(115, now);
+        osc.frequency.linearRampToValueAtTime(80, now + 0.4);
+        gain.gain.setValueAtTime(0.45, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      }
+    }
+  </script>
+
+  <!-- Main Game Engine -->
+  <script>
+    const STATE = {
+      INIT: 0,
+      READY_PITCH: 1,
+      PITCH_IN_FLIGHT: 2,
+      CLASH_TRANSITION: 3,
+      BOUT_ACTIVE: 4,
+      BOUT_DECISION: 5,
+      DIAMOND_RUN: 6
+    };
+
+    class SluggerBrawlGame {
+      constructor() {
+        this.state = STATE.INIT;
+        this.sfx = new SoundEngine();
+
+        // Match Stats
+        this.runs = 0;
+        this.outs = 0;
+        this.strikes = 0;
+        this.inning = 1;
+        this.bases = [false, false, false];
+        this.difficulty = 'pro'; // 'rookie', 'pro', 'allstar'
+
+        // Boxing Combat Stats
+        this.playerHP = 100;
+        this.playerHPGhost = 100;
+        this.enemyHP = 100;
+        this.enemyHPGhost = 100;
+        this.boutTimer = 15;
+        this.boutTimerAccumulator = 0;
+        this.isPlayerBlocking = false;
+        this.isPlayerDodging = false;
+        this.playerSuperCharge = 0;
+        this.playerCombo = 0;
+        this.slipCounterActive = false;
+        this.hitStopTimer = 0;
+
+        // AI opponent state
+        this.aiActionTimer = 0;
+        this.aiCurrentAction = 'idle';
+
+        // Camera control & director
+        this.cameraMode = 'behind';
+        this.targetCamPos = new THREE.Vector3(0.6, 2.4, 3.8);
+        this.targetCamLookAt = new THREE.Vector3(0, 1.6, -18.4);
+        this.currentCamLookAt = new THREE.Vector3(0, 1.6, -18.4);
+
+        // Pitch configuration
+        this.pitchDuration = 1.30;
+        this.pitchProgress = 0;
+        this.pitchSpeed = 90;
+        this.pitchCurve = new THREE.Vector3();
+        this.hasSwung = false;
+        this.pitchHitAdvantage = 0;
+        this.stateTimer = 0;
+
+        // Base advancement
+        this.awardedBases = 0;
+
+        // Three.js Scene objects
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.clock = new THREE.Clock();
+        this.isWebGL = false;
+
+        this.stadiumGroup = new THREE.Group();
+        this.boxingRingGroup = new THREE.Group();
+        this.ballMesh = null;
+        this.particlePool = [];
+        this.runnersGroup = new THREE.Group();
+
+        // Actors
+        this.batterRig = null;
+        this.pitcherRig = null;
+        this.umpireRig = null;
+        this.catcherRig = null;
+        this.runnerMeshes = [];
+        this.jumbotronCanvas = null;
+        this.jumbotronTex = null;
+
+        this.initDOMRefs();
+      }
+
+      initDOMRefs() {
+        this.hudRuns = document.getElementById('hud-runs');
+        this.hudInning = document.getElementById('hud-inning');
+        this.outDots = [
+          document.getElementById('out-1'),
+          document.getElementById('out-2'),
+          document.getElementById('out-3')
+        ];
+        this.baseMarkers = [
+          document.getElementById('base-1'),
+          document.getElementById('base-2'),
+          document.getElementById('base-3')
+        ];
+        this.fightHud = document.getElementById('fight-hud');
+        this.playerHpFill = document.getElementById('player-hp-fill');
+        this.playerHpGhost = document.getElementById('player-hp-ghost');
+        this.playerHpTxt = document.getElementById('player-hp-txt');
+        this.enemyHpFill = document.getElementById('enemy-hp-fill');
+        this.enemyHpGhost = document.getElementById('enemy-hp-ghost');
+        this.enemyHpTxt = document.getElementById('enemy-hp-txt');
+        this.roundClock = document.getElementById('round-clock');
+        this.comboMeter = document.getElementById('combo-meter');
+        this.pitchGauge = document.getElementById('pitch-gauge');
+        this.pitchReticle = document.getElementById('pitch-reticle');
+        this.centerBanner = document.getElementById('center-banner');
+        this.bannerText = document.getElementById('banner-text');
+        this.bannerSub = document.getElementById('banner-sub');
+        this.instructionsHint = document.getElementById('instructions-hint');
+        this.combatTextContainer = document.getElementById('combat-text-container');
+        this.screenFlash = document.getElementById('screen-flash');
+
+        this.btnSwing = document.getElementById('btn-action-swing');
+        this.btnJab = document.getElementById('btn-action-jab');
+        this.btnCross = document.getElementById('btn-action-cross');
+        this.btnBlock = document.getElementById('btn-action-block');
+        this.btnDodge = document.getElementById('btn-action-dodge');
+        this.btnSuper = document.getElementById('btn-action-super');
+      }
+
+      // Floating Arcade Combat Text
+      spawnCombatText(text, color = '#ffffff') {
+        const elem = document.createElement('div');
+        elem.className = 'floating-text';
+        elem.textContent = text;
+        elem.style.color = color;
+        elem.style.left = '50%';
+        elem.style.top = '48%';
+        elem.style.textShadow = `0 0 20px ${color}, 0 2px 4px #000`;
+        this.combatTextContainer.appendChild(elem);
+        setTimeout(() => {
+          if (elem.parentNode) elem.parentNode.removeChild(elem);
+        }, 850);
+      }
+
+      flashScreen() {
+        this.screenFlash.classList.add('active');
+        setTimeout(() => this.screenFlash.classList.remove('active'), 120);
+      }
+
+      triggerShake() {
+        document.body.classList.add('screen-shake');
+        setTimeout(() => document.body.classList.remove('screen-shake'), 260);
+        if (navigator.vibrate) {
+          try { navigator.vibrate(60); } catch(e){}
+        }
+      }
+
+      // Procedural Textures
+      createCanvasTexture(width, height, drawFn) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        drawFn(ctx, width, height);
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        return texture;
+      }
+
+      createGrassTexture() {
+        return this.createCanvasTexture(512, 512, (ctx, w, h) => {
+          ctx.fillStyle = '#1c6a25';
+          ctx.fillRect(0, 0, w, h);
+          ctx.fillStyle = '#268a32';
+          for (let i = 0; i < h; i += 64) {
+            ctx.fillRect(0, i, w, 32);
+          }
+          ctx.fillStyle = 'rgba(255,255,255,0.06)';
+          for (let i = 0; i < 4000; i++) {
+            ctx.fillRect(Math.random() * w, Math.random() * h, 2, 4);
+          }
+        });
+      }
+
+      createDirtTexture() {
+        return this.createCanvasTexture(256, 256, (ctx, w, h) => {
+          ctx.fillStyle = '#9b5f34';
+          ctx.fillRect(0, 0, w, h);
+          ctx.fillStyle = '#7a4620';
+          for (let i = 0; i < 1200; i++) {
+            ctx.fillRect(Math.random() * w, Math.random() * h, 3, 3);
+          }
+        });
+      }
+
+      // Upgraded Jumbotron Outfield Display
+      createJumbotronCanvas() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        this.jumbotronCanvas = canvas;
+        this.jumbotronCtx = ctx;
+        this.jumbotronTex = new THREE.CanvasTexture(canvas);
+        return this.jumbotronTex;
+      }
+
+      updateJumbotron() {
+        if (!this.jumbotronCtx) return;
+        const ctx = this.jumbotronCtx;
+        const w = 512, h = 256;
+        const time = this.clock.getElapsedTime();
+
+        ctx.fillStyle = '#060a17';
+        ctx.fillRect(0, 0, w, h);
+
+        // LED dot matrix effect
+        ctx.fillStyle = '#121e38';
+        ctx.fillRect(8, 8, w - 16, h - 16);
+
+        // Border neon
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(12, 12, w - 24, h - 24);
+
+        ctx.fillStyle = '#ff1850';
+        ctx.font = 'bold 36px Impact, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('SLUGGER BRAWL ARENA', w / 2, 54);
+
+        // Dynamic State status
+        let statusMsg = 'BATTER UP!';
+        let statusCol = '#ffe500';
+        if (this.state === STATE.PITCH_IN_FLIGHT) {
+          statusMsg = this.pitchSpeed + ' MPH PITCH INBOUND!';
+          statusCol = '#00f0ff';
+        } else if (this.state === STATE.BOUT_ACTIVE) {
+          statusMsg = 'ROUND 1 • FIGHT!';
+          statusCol = '#ff1850';
+        } else if (this.state === STATE.DIAMOND_RUN) {
+          statusMsg = 'ADVANCING RUNNERS!';
+          statusCol = '#00ff88';
+        }
+
+        ctx.fillStyle = statusCol;
+        ctx.font = 'bold 44px Impact, sans-serif';
+        ctx.fillText(statusMsg, w / 2, 125);
+
+        // Stats ticker
+        ctx.fillStyle = '#8ea7cf';
+        ctx.font = 'bold 20px Arial, sans-serif';
+        ctx.fillText('RUNS: ' + this.runs + '  |  OUTS: ' + this.outs + '  |  INNING: TOP ' + this.inning, w / 2, 185);
+
+        // Pulsing arcade footer
+        const pulse = Math.abs(Math.sin(time * 4));
+        ctx.fillStyle = 'rgba(255, 229, 0, ' + (0.5 + pulse * 0.5) + ')';
+        ctx.font = 'bold 16px Arial, sans-serif';
+        ctx.fillText('★ OFFICIAL CHAMPIONSHIP BOUT ★', w / 2, 225);
+
+        if (this.jumbotronTex) this.jumbotronTex.needsUpdate = true;
+      }
+
+      // Detailed Rigged Character Generator
+      createCharacterRig(teamColor, gloveColor, isPitcher = false) {
+        const root = new THREE.Group();
+        const skinMat = new THREE.MeshLambertMaterial({ color: 0xe5ac89 });
+        const uniformMat = new THREE.MeshLambertMaterial({ color: teamColor });
+        const pantsMat = new THREE.MeshLambertMaterial({ color: 0xf5f7fc });
+        const gloveMat = new THREE.MeshLambertMaterial({ color: gloveColor });
+        const capMat = new THREE.MeshLambertMaterial({ color: teamColor });
+        const batMat = new THREE.MeshLambertMaterial({ color: 0xba854d });
+
+        // Torso
+        const torsoGroup = new THREE.Group();
+        torsoGroup.position.y = 1.0;
+        root.add(torsoGroup);
+
+        const chestMesh = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.78, 0.46), uniformMat);
+        chestMesh.castShadow = true;
+        torsoGroup.add(chestMesh);
+
+        // Jersey Number plate on back
+        const numMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(0.35, 0.35, 0.05),
+          new THREE.MeshLambertMaterial({ color: 0xffffff })
+        );
+        numMesh.position.set(0, 0.08, -0.24);
+        torsoGroup.add(numMesh);
+
+        // Head & Batting Helmet
+        const headGroup = new THREE.Group();
+        headGroup.position.y = 0.65;
+        torsoGroup.add(headGroup);
+
+        const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.4, 0.36), skinMat);
+        headMesh.castShadow = true;
+        headGroup.add(headMesh);
+
+        const helmet = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.44), capMat);
+        helmet.position.y = 0.20;
+        headGroup.add(helmet);
+
+        const visorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.04, 0.28), capMat);
+        visorMesh.position.set(0, 0.15, isPitcher ? 0.30 : -0.30);
+        headGroup.add(visorMesh);
+
+        // Ear flap for batter
+        if (!isPitcher) {
+          const earFlap = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.24, 0.22), capMat);
+          earFlap.position.set(0.22, 0.06, 0);
+          headGroup.add(earFlap);
+        }
+
+        // Left Arm & Glove
+        const leftArm = new THREE.Group();
+        leftArm.position.set(-0.50, 0.28, 0);
+        torsoGroup.add(leftArm);
+
+        const leftUpper = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.42, 0.2), uniformMat);
+        leftUpper.position.y = -0.19;
+        leftArm.add(leftUpper);
+
+        const leftGlove = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 12), gloveMat);
+        leftGlove.position.y = -0.44;
+        leftGlove.scale.set(1.15, 1.25, 1.15);
+        leftArm.add(leftGlove);
+
+        // Right Arm & Glove / Bat
+        const rightArm = new THREE.Group();
+        rightArm.position.set(0.50, 0.28, 0);
+        torsoGroup.add(rightArm);
+
+        const rightUpper = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.42, 0.2), uniformMat);
+        rightUpper.position.y = -0.19;
+        rightArm.add(rightUpper);
+
+        const rightGlove = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 12), gloveMat);
+        rightGlove.position.y = -0.44;
+        rightGlove.scale.set(1.15, 1.25, 1.15);
+        rightArm.add(rightGlove);
+
+        // Bat
+        const batMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.075, 1.25, 10), batMat);
+        batMesh.position.set(0, -0.42, 0.48);
+        batMesh.rotation.x = Math.PI / 3;
+        batMesh.visible = !isPitcher;
+        rightArm.add(batMesh);
+
+        // Legs & Cleats
+        const leftLeg = new THREE.Group();
+        leftLeg.position.set(-0.21, 0, 0);
+        root.add(leftLeg);
+
+        const leftThigh = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.62, 0.24), pantsMat);
+        leftThigh.position.y = 0.55;
+        leftLeg.add(leftThigh);
+
+        const leftCleat = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.16, 0.42), new THREE.MeshLambertMaterial({ color: 0x111111 }));
+        leftCleat.position.set(0, 0.1, 0.06);
+        leftLeg.add(leftCleat);
+
+        const rightLeg = new THREE.Group();
+        rightLeg.position.set(0.21, 0, 0);
+        root.add(rightLeg);
+
+        const rightThigh = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.62, 0.24), pantsMat);
+        rightThigh.position.y = 0.55;
+        rightLeg.add(rightThigh);
+
+        const rightCleat = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.16, 0.42), new THREE.MeshLambertMaterial({ color: 0x111111 }));
+        rightCleat.position.set(0, 0.1, 0.06);
+        rightLeg.add(rightCleat);
+
+        return {
+          root,
+          torsoGroup,
+          headGroup,
+          leftArm,
+          rightArm,
+          leftLeg,
+          rightLeg,
+          leftGlove,
+          rightGlove,
+          batMesh
+        };
+      }
+
+      // Procedural Umpire & Catcher Models
+      createUmpireRig() {
+        const root = new THREE.Group();
+        const coatMat = new THREE.MeshLambertMaterial({ color: 0x18243b });
+        const maskMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+        const skinMat = new THREE.MeshLambertMaterial({ color: 0xe5ac89 });
+
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.8, 0.5), coatMat);
+        torso.position.y = 0.9;
+        root.add(torso);
+
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), skinMat);
+        head.position.y = 1.45;
+        root.add(head);
+
+        const mask = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.1), maskMat);
+        mask.position.set(0, 1.45, -0.18);
+        root.add(mask);
+
+        // Right Arm (for strike fist pump)
+        const rightArm = new THREE.Group();
+        rightArm.position.set(0.5, 1.1, 0);
+        root.add(rightArm);
+        const rArmMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.45, 0.2), coatMat);
+        rArmMesh.position.y = -0.2;
+        rightArm.add(rArmMesh);
+
+        return { root, rightArm };
+      }
+
+      createCatcherRig() {
+        const root = new THREE.Group();
+        const gearMat = new THREE.MeshLambertMaterial({ color: 0xd42239 });
+        const padMat = new THREE.MeshLambertMaterial({ color: 0x242424 });
+        const skinMat = new THREE.MeshLambertMaterial({ color: 0xe5ac89 });
+
+        // Squatting torso
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.65, 0.45), gearMat);
+        torso.position.y = 0.65;
+        root.add(torso);
+
+        // Chest Protector plates
+        const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.1), padMat);
+        chestPlate.position.set(0, 0.65, -0.24);
+        root.add(chestPlate);
+
+        // Helmet & Mask
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), skinMat);
+        head.position.y = 1.1;
+        root.add(head);
+
+        const mask = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.15), padMat);
+        mask.position.set(0, 1.1, -0.18);
+        root.add(mask);
+
+        // Big catcher mitt
+        const mitt = new THREE.Mesh(
+          new THREE.SphereGeometry(0.24, 10, 10),
+          new THREE.MeshLambertMaterial({ color: 0x5e371a })
+        );
+        mitt.position.set(-0.35, 0.8, -0.4);
+        root.add(mitt);
+
+        return { root, mitt };
+      }
+
+      // Three.js Scene Setup
+      setupThreeScene() {
+        const container = document.getElementById('canvas-container');
+        this.isWebGL = false;
+
+        try {
+          const testCanvas = document.createElement('canvas');
+          const gl = testCanvas.getContext('webgl') || testCanvas.getContext('experimental-webgl');
+          if (gl && typeof THREE !== 'undefined') {
+            this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            this.renderer.shadowMap.enabled = true;
+            this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(this.renderer.domElement);
+            this.isWebGL = true;
+            console.log('[Engine] WebGL 3D Hardware Accelerated Mode Active');
+          }
+        } catch (e) {
+          console.warn('[Engine] WebGL unavailable, falling back to Canvas 2D engine:', e);
+          this.isWebGL = false;
+        }
+
+        if (!this.isWebGL) {
+          this.canvas2dElem = document.createElement('canvas');
+          this.canvas2dElem.width = window.innerWidth;
+          this.canvas2dElem.height = window.innerHeight;
+          this.canvas2dElem.style.width = '100%';
+          this.canvas2dElem.style.height = '100%';
+          container.appendChild(this.canvas2dElem);
+          this.canvas2d = this.canvas2dElem.getContext('2d');
+          console.log('[Engine] Fallback Canvas 2.5D Mode Active');
+        }
+
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x060914);
+        this.scene.fog = new THREE.FogExp2(0x0a1024, 0.012);
+
+        this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 280);
+        this.camera.position.set(0.6, 2.4, 3.8);
+        this.scene.add(this.camera);
+
+        if (this.isWebGL) {
+          const ambientLight = new THREE.AmbientLight(0x758bb8, 0.65);
+          this.scene.add(ambientLight);
+
+          // 4 Stadium Floodlight Towers with Volumetric Cones
+          const lightPositions = [
+            [-32, 24, -18],
+            [32, 24, -18],
+            [-26, 22, 26],
+            [26, 22, 26]
+          ];
+
+          lightPositions.forEach(pos => {
+            const spot = new THREE.SpotLight(0xfff6e6, 1.35, 130, Math.PI / 4, 0.45, 1.2);
+            spot.position.set(pos[0], pos[1], pos[2]);
+            spot.target.position.set(0, 1, -6);
+            spot.castShadow = true;
+            spot.shadow.mapSize.width = 1024;
+            spot.shadow.mapSize.height = 1024;
+            this.scene.add(spot);
+            this.scene.add(spot.target);
+
+            // Light tower structure
+            const pole = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.35, 0.55, pos[1], 8),
+              new THREE.MeshLambertMaterial({ color: 0x222e47 })
+            );
+            pole.position.set(pos[0], pos[1] / 2, pos[2]);
+            this.scene.add(pole);
+
+            // Volumetric glowing light cone
+            const coneMat = new THREE.MeshBasicMaterial({
+              color: 0xffffff,
+              transparent: true,
+              opacity: 0.07,
+              depthWrite: false
+            });
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(8, pos[1], 16, 1, true), coneMat);
+            cone.position.set(pos[0], pos[1] / 2, pos[2]);
+            cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0));
+            this.scene.add(cone);
+          });
+        }
+
+        // Dramatic Home-Plate Boxing Spotlight
+        this.fightSpotlight = new THREE.SpotLight(0xff1850, 3.2, 35, Math.PI / 3.2, 0.25, 1.4);
+        this.fightSpotlight.position.set(0, 12, 0);
+        this.fightSpotlight.target.position.set(0, 1, 0);
+        this.fightSpotlight.visible = false;
+        this.scene.add(this.fightSpotlight);
+        this.scene.add(this.fightSpotlight.target);
+
+        this.buildStadium();
+        this.buildBoxingRing();
+        this.buildActors();
+        this.setupParticlePool();
+
+        window.addEventListener('resize', () => {
+          if (this.camera) {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+          }
+          if (this.renderer) {
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+          }
+          if (this.canvas2dElem) {
+            this.canvas2dElem.width = window.innerWidth;
+            this.canvas2dElem.height = window.innerHeight;
+          }
+        });
+      }
+
+      buildStadium() {
+        const grassTex = this.createGrassTexture();
+        grassTex.repeat.set(24, 24);
+        const dirtTex = this.createDirtTexture();
+        dirtTex.repeat.set(8, 8);
+
+        // Outfield grass
+        const fieldGeo = new THREE.PlaneGeometry(180, 180);
+        const fieldMat = new THREE.MeshLambertMaterial({ map: grassTex });
+        const field = new THREE.Mesh(fieldGeo, fieldMat);
+        field.rotation.x = -Math.PI / 2;
+        field.receiveShadow = true;
+        this.stadiumGroup.add(field);
+
+        // Dirt Infield
+        const diamondGeo = new THREE.PlaneGeometry(38, 38);
+        const diamondMat = new THREE.MeshLambertMaterial({ map: dirtTex });
+        const diamond = new THREE.Mesh(diamondGeo, diamondMat);
+        diamond.rotation.x = -Math.PI / 2;
+        diamond.rotation.z = Math.PI / 4;
+        diamond.position.set(0, 0.02, -10.5);
+        diamond.receiveShadow = true;
+        this.stadiumGroup.add(diamond);
+
+        // White Foul Lines down 1st and 3rd bases
+        const chalkMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const foulLineR = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 55), chalkMat);
+        foulLineR.rotation.x = -Math.PI / 2;
+        foulLineR.rotation.z = Math.PI / 4;
+        foulLineR.position.set(19.5, 0.03, -19.5);
+        this.stadiumGroup.add(foulLineR);
+
+        const foulLineL = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 55), chalkMat);
+        foulLineL.rotation.x = -Math.PI / 2;
+        foulLineL.rotation.z = -Math.PI / 4;
+        foulLineL.position.set(-19.5, 0.03, -19.5);
+        this.stadiumGroup.add(foulLineL);
+
+        // Pitcher's Mound
+        const moundGeo = new THREE.CylinderGeometry(3.6, 4.8, 0.5, 24);
+        const moundMat = new THREE.MeshLambertMaterial({ map: dirtTex });
+        const mound = new THREE.Mesh(moundGeo, moundMat);
+        mound.position.set(0, 0.22, -18.4);
+        mound.receiveShadow = true;
+        this.stadiumGroup.add(mound);
+
+        // Pitching Rubber
+        const rubber = new THREE.Mesh(
+          new THREE.BoxGeometry(0.85, 0.08, 0.28),
+          new THREE.MeshLambertMaterial({ color: 0xffffff })
+        );
+        rubber.position.set(0, 0.48, -18.4);
+        this.stadiumGroup.add(rubber);
+
+        // Home Plate
+        const baseMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+        const homePlate = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.08, 0.72), baseMat);
+        homePlate.position.set(0, 0.04, 0);
+        homePlate.rotation.y = Math.PI / 4;
+        this.stadiumGroup.add(homePlate);
+
+        // Batter's boxes chalk outline
+        const boxChalk = new THREE.Mesh(
+          new THREE.BoxGeometry(0.9, 0.02, 1.8),
+          new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true })
+        );
+        boxChalk.position.set(0.9, 0.03, 0);
+        this.stadiumGroup.add(boxChalk);
+
+        // Bases
+        this.basePositions = [
+          new THREE.Vector3(13.4, 0.06, -10.5), // 1st Base
+          new THREE.Vector3(0, 0.06, -21.8),     // 2nd Base
+          new THREE.Vector3(-13.4, 0.06, -10.5) // 3rd Base
+        ];
+
+        this.basePositions.forEach(pos => {
+          const b = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.12, 0.75), baseMat);
+          b.position.copy(pos);
+          b.rotation.y = Math.PI / 4;
+          b.castShadow = true;
+          this.stadiumGroup.add(b);
+        });
+
+        // Yellow Foul Poles with mesh wings
+        const poleMat = new THREE.MeshLambertMaterial({ color: 0xffea00 });
+        const foulPoleR = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 18, 8), poleMat);
+        foulPoleR.position.set(38, 9, -38);
+        this.stadiumGroup.add(foulPoleR);
+
+        const foulPoleL = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 18, 8), poleMat);
+        foulPoleL.position.set(-38, 9, -38);
+        this.stadiumGroup.add(foulPoleL);
+
+        // Outfield Curved Wall
+        const wallMat = new THREE.MeshLambertMaterial({ color: 0x142038 });
+        const wallGeo = new THREE.CylinderGeometry(58, 58, 6, 36, 1, true, -Math.PI / 1.5, Math.PI * 1.33);
+        const wall = new THREE.Mesh(wallGeo, wallMat);
+        wall.position.set(0, 3.0, -22);
+        this.stadiumGroup.add(wall);
+
+        // Outfield Jumbotron Screen in Center Field
+        const jumbotronTex = this.createJumbotronCanvas();
+        const jumbotronGeo = new THREE.PlaneGeometry(28, 14);
+        const jumbotronMat = new THREE.MeshBasicMaterial({ map: jumbotronTex });
+        const jumbotron = new THREE.Mesh(jumbotronGeo, jumbotronMat);
+        jumbotron.position.set(0, 14, -62);
+        this.stadiumGroup.add(jumbotron);
+
+        // Bleachers with animated crowd
+        const bleachersGeo = new THREE.BoxGeometry(110, 16, 20);
+        const bleachersMat = new THREE.MeshLambertMaterial({ color: 0x0a1122 });
+        const bleachers = new THREE.Mesh(bleachersGeo, bleachersMat);
+        bleachers.position.set(0, 8, -72);
+        this.stadiumGroup.add(bleachers);
+
+        const fanColors = [0xff1850, 0x00f0ff, 0xffe500, 0x3dff55, 0xffffff, 0xa34bff];
+        this.fanCrowd = [];
+        for (let i = -45; i <= 45; i += 3.2) {
+          for (let row = 0; row < 4; row++) {
+            const fanMat = new THREE.MeshLambertMaterial({
+              color: fanColors[Math.floor(Math.random() * fanColors.length)]
+            });
+            const fan = new THREE.Mesh(new THREE.BoxGeometry(0.75, 1.3, 0.75), fanMat);
+            fan.position.set(i + (Math.random() * 0.8), 8.5 + (row * 2.2), -76 + (row * 4.2));
+            fan.userData = { initialY: fan.position.y, phase: Math.random() * Math.PI * 2 };
+            this.stadiumGroup.add(fan);
+            this.fanCrowd.push(fan);
+          }
+        }
+
+        this.scene.add(this.stadiumGroup);
+      }
+
+      // Hybrid Transformation: Boxing ring around Home Plate
+      buildBoxingRing() {
+        const postMat = new THREE.MeshLambertMaterial({ color: 0xd91438 });
+        const ropeMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+        const postRadius = 0.16;
+        const postHeight = 2.4;
+        const halfSize = 2.8;
+
+        const corners = [
+          [-halfSize, -halfSize],
+          [halfSize, -halfSize],
+          [halfSize, halfSize],
+          [-halfSize, halfSize]
+        ];
+
+        corners.forEach(c => {
+          const post = new THREE.Mesh(
+            new THREE.CylinderGeometry(postRadius, postRadius, postHeight, 10),
+            postMat
+          );
+          post.position.set(c[0], postHeight / 2, c[1]);
+          post.castShadow = true;
+          this.boxingRingGroup.add(post);
+
+          const cap = new THREE.Mesh(
+            new THREE.SphereGeometry(0.25, 10, 10),
+            new THREE.MeshBasicMaterial({ color: 0xffe500 })
+          );
+          cap.position.set(c[0], postHeight + 0.12, c[1]);
+          this.boxingRingGroup.add(cap);
+        });
+
+        // 3 Tiers of springy neon ropes
+        const ropeHeights = [0.7, 1.3, 1.9];
+        ropeHeights.forEach(h => {
+          for (let i = 0; i < 4; i++) {
+            const c1 = corners[i];
+            const c2 = corners[(i + 1) % 4];
+            const dx = c2[0] - c1[0];
+            const dz = c2[1] - c1[1];
+            const len = Math.sqrt(dx * dx + dz * dz);
+
+            const rope = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.045, 0.045, len, 6),
+              ropeMat
+            );
+            rope.position.set((c1[0] + c2[0]) / 2, h, (c1[1] + c2[1]) / 2);
+            rope.quaternion.setFromUnitVectors(
+              new THREE.Vector3(0, 1, 0),
+              new THREE.Vector3(dx, 0, dz).normalize()
+            );
+            this.boxingRingGroup.add(rope);
+          }
+        });
+
+        // Ring canvas mat
+        const ringCanvas = new THREE.Mesh(
+          new THREE.PlaneGeometry(halfSize * 2, halfSize * 2),
+          new THREE.MeshLambertMaterial({ color: 0x111628 })
+        );
+        ringCanvas.rotation.x = -Math.PI / 2;
+        ringCanvas.position.y = 0.03;
+        ringCanvas.receiveShadow = true;
+        this.boxingRingGroup.add(ringCanvas);
+
+        this.boxingRingGroup.position.y = -6;
+        this.scene.add(this.boxingRingGroup);
+      }
+
+      buildActors() {
+        // Batter
+        this.batterRig = this.createCharacterRig(0x0077ff, 0xff1850, false);
+        this.batterRig.root.position.set(0.65, 0, 0.4);
+        this.batterRig.root.rotation.y = -Math.PI / 3;
+        this.scene.add(this.batterRig.root);
+
+        // Pitcher
+        this.pitcherRig = this.createCharacterRig(0xd42239, 0xffe500, true);
+        this.pitcherRig.root.position.set(0, 0.48, -18.4);
+        this.pitcherRig.root.rotation.y = 0;
+        this.scene.add(this.pitcherRig.root);
+
+        // Catcher & Umpire behind plate
+        this.catcherRig = this.createCatcherRig();
+        this.catcherRig.root.position.set(0, 0, 1.4);
+        this.scene.add(this.catcherRig.root);
+
+        this.umpireRig = this.createUmpireRig();
+        this.umpireRig.root.position.set(0, 0, 2.3);
+        this.scene.add(this.umpireRig.root);
+
+        // Baseball Ball
+        const ballGeo = new THREE.SphereGeometry(0.18, 14, 14);
+        const ballMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        this.ballMesh = new THREE.Mesh(ballGeo, ballMat);
+        this.ballMesh.visible = false;
+        this.scene.add(this.ballMesh);
+
+        // Base Runners
+        this.scene.add(this.runnersGroup);
+        for (let i = 0; i < 3; i++) {
+          const runner = this.createCharacterRig(0x00aaff, 0x00f0ff, false);
+          runner.batMesh.visible = false;
+          runner.root.visible = false;
+          this.runnersGroup.add(runner.root);
+          this.runnerMeshes.push(runner);
+        }
+      }
+
+      setupParticlePool() {
+        this.particlePool = [];
+        const pGeo = new THREE.BoxGeometry(0.14, 0.14, 0.14);
+        for (let i = 0; i < 80; i++) {
+          const pMat = new THREE.MeshBasicMaterial({ color: 0xffe500 });
+          const p = new THREE.Mesh(pGeo, pMat);
+          p.visible = false;
+          this.scene.add(p);
+          this.particlePool.push({
+            mesh: p,
+            vel: new THREE.Vector3(),
+            life: 0,
+            maxLife: 1
+          });
+        }
+      }
+
+      spawnHitSparks(pos, count = 16, color = 0xffe500) {
+        let spawned = 0;
+        for (const p of this.particlePool) {
+          if (!p.mesh.visible) {
+            p.mesh.visible = true;
+            p.mesh.material.color.setHex(color);
+            p.mesh.position.copy(pos);
+            p.vel.set(
+              (Math.random() - 0.5) * 8,
+              Math.random() * 6 + 2.0,
+              (Math.random() - 0.5) * 8
+            );
+            p.life = 0;
+            p.maxLife = 0.45 + Math.random() * 0.35;
+            spawned++;
+            if (spawned >= count) break;
+          }
+        }
+      }
+
+      // Finite State Machine
+      transitionTo(newState) {
+        console.log('[FSM Transition] to ' + newState);
+        this.state = newState;
+
+        switch (newState) {
+          case STATE.READY_PITCH:
+            this.setupReadyPitch();
+            break;
+          case STATE.PITCH_IN_FLIGHT:
+            this.setupPitchFlight();
+            break;
+          case STATE.CLASH_TRANSITION:
+            this.setupClashTransition();
+            break;
+          case STATE.BOUT_ACTIVE:
+            this.setupBout();
+            break;
+          case STATE.BOUT_DECISION:
+            this.setupBoutDecision();
+            break;
+          case STATE.DIAMOND_RUN:
+            this.setupDiamondRun();
+            break;
+        }
+      }
+
+      setupReadyPitch() {
+        this.hasSwung = false;
+        this.pitchHitAdvantage = 0;
+        this.ballMesh.visible = false;
+        this.playerCombo = 0;
+        this.comboMeter.classList.remove('show');
+
+        // Reset Batter
+        this.batterRig.root.position.set(0.7, 0, 0.4);
+        this.batterRig.root.rotation.set(0, -Math.PI / 3, 0);
+        this.batterRig.batMesh.visible = true;
+        this.batterRig.torsoGroup.position.set(0, 1.0, 0);
+        this.batterRig.torsoGroup.rotation.set(0, 0, 0);
+        this.batterRig.leftArm.position.set(-0.5, 0.28, 0);
+        this.batterRig.rightArm.position.set(0.5, 0.28, 0);
+        this.batterRig.rightArm.rotation.set(0, 0, 0);
+
+        // Reset Pitcher
+        this.pitcherRig.root.position.set(0, 0.48, -18.4);
+        this.pitcherRig.root.rotation.set(0, 0, 0);
+        this.pitcherRig.torsoGroup.position.set(0, 1.0, 0);
+        this.pitcherRig.leftArm.position.set(-0.5, 0.28, 0);
+        this.pitcherRig.rightArm.position.set(0.5, 0.28, 0);
+
+        // Retract boxing ring
+        this.boxingRingGroup.position.y = -6;
+        this.fightSpotlight.visible = false;
+
+        this.setCameraView('behind');
+
+        this.fightHud.style.display = 'none';
+        this.pitchGauge.style.display = 'none';
+        this.btnSwing.style.display = 'inline-block';
+        this.btnJab.style.display = 'none';
+        this.btnCross.style.display = 'none';
+        this.btnBlock.style.display = 'none';
+        this.btnDodge.style.display = 'none';
+        this.btnSuper.style.display = 'none';
+
+        this.instructionsHint.innerHTML =
+          'Pitcher winding up... Get ready to <span class="key-badge">SWING (SPACE)</span>!';
+
+        this.sfx.playOrganChime();
+        this.stateTimer = 1.1;
+      }
+
+      setupPitchFlight() {
+        this.sfx.playWhoosh();
+        this.pitchProgress = 0;
+        this.ballMesh.visible = true;
+        this.ballMesh.position.set(0, 1.8, -18.4);
+
+        let speedMultiplier = this.difficulty === 'allstar' ? 1.25 : (this.difficulty === 'rookie' ? 0.85 : 1.0);
+
+        const pitchTypes = [
+          { speed: 1.15 / speedMultiplier, mph: Math.round(96 * speedMultiplier), curveX: 0.1, label: '4-SEAM FASTBALL' },
+          { speed: 1.40 / speedMultiplier, mph: Math.round(84 * speedMultiplier), curveX: 1.1, label: 'WICKED CURVEBALL' },
+          { speed: 1.28 / speedMultiplier, mph: Math.round(90 * speedMultiplier), curveX: -0.85, label: 'CUTTER' }
+        ];
+        const pitch = pitchTypes[Math.floor(Math.random() * pitchTypes.length)];
+        this.pitchDuration = pitch.speed;
+        this.pitchSpeed = pitch.mph;
+        this.pitchCurve.set(pitch.curveX, 0, 0);
+
+        this.pitchGauge.style.display = 'block';
+        this.instructionsHint.innerHTML =
+          `Incoming: <strong>${pitch.mph} MPH ${pitch.label}</strong>! Swing in the sweet spot!`;
+      }
+
+      playerSwing() {
+        if (this.hasSwung || this.state !== STATE.PITCH_IN_FLIGHT) return;
+        this.hasSwung = true;
+
+        this.batterRig.rightArm.rotation.y = -Math.PI * 0.9;
+        this.batterRig.root.rotation.y = Math.PI * 0.2;
+
+        const timingDelta = Math.abs(this.pitchProgress - 0.88);
+
+        if (timingDelta < 0.16) {
+          this.sfx.playBatCrack();
+          this.triggerShake();
+          this.flashScreen();
+
+          const isSweetSpot = timingDelta < 0.08;
+          this.pitchHitAdvantage = isSweetSpot ? 30 : 12;
+          this.spawnHitSparks(new THREE.Vector3(0, 1.4, 0.2), 25, 0xff1850);
+
+          const feedback = isSweetSpot ? 'PERFECT CONTACT! +30% ADVANTAGE!' : 'SOLID CLASH!';
+          this.spawnCombatText(feedback, '#ffe500');
+          this.showCenterBanner(isSweetSpot ? 'PERFECT CLASH!' : 'CLASH!', 'BRAWL IN THE BATTER’S BOX!');
+          this.sfx.speak('Clash in the box!');
+
+          this.transitionTo(STATE.CLASH_TRANSITION);
+        } else {
+          this.sfx.playBuzzer();
+          this.strikes++;
+          this.spawnCombatText(this.pitchProgress < 0.88 ? 'SWING EARLY!' : 'SWING LATE!', '#ff3366');
+          this.showCenterBanner('STRIKE!', `COUNT: ${this.strikes} STRIKES`);
+
+          // Umpire strike call
+          this.umpireRig.rightArm.rotation.z = Math.PI / 2;
+          setTimeout(() => { if (this.umpireRig) this.umpireRig.rightArm.rotation.z = 0; }, 600);
+
+          if (this.strikes >= 3) {
+            this.sfx.speak("Strike three, you're out!");
+            this.recordOut('STRIKEOUT!');
+          } else {
+            setTimeout(() => this.transitionTo(STATE.READY_PITCH), 1400);
+          }
+        }
+      }
+
+      setupClashTransition() {
+        this.pitchGauge.style.display = 'none';
+        this.ballMesh.visible = false;
+        this.stateTimer = 1.35;
+
+        // Cinematic Slow Motion Orbit
+        this.targetCamPos.set(2.4, 1.8, 2.8);
+        this.targetCamLookAt.set(0, 1.4, 0);
+
+        this.boxingRingGroup.position.y = 0;
+        this.fightSpotlight.visible = true;
+
+        this.pitcherRig.root.position.set(0, 0, -1.5);
+        this.pitcherRig.root.rotation.y = 0;
+
+        this.batterRig.root.position.set(0, 0, 1.2);
+        this.batterRig.root.rotation.y = Math.PI;
+        this.batterRig.batMesh.visible = false;
+
+        this.sfx.playBell();
+      }
+
+      setupBout() {
+        this.playerHP = 100;
+        this.playerHPGhost = 100;
+        this.enemyHP = 100;
+        this.enemyHPGhost = 100;
+        this.boutTimer = 15;
+        this.boutTimerAccumulator = 0;
+        this.playerSuperCharge = 0;
+        this.playerCombo = 0;
+
+        if (this.pitchHitAdvantage > 0) {
+          this.enemyHP -= this.pitchHitAdvantage;
+          this.playerSuperCharge += 25;
+        }
+
+        this.setCameraView('side');
+
+        this.fightHud.style.display = 'flex';
+        this.updateFightUI();
+
+        this.btnSwing.style.display = 'none';
+        this.btnJab.style.display = 'inline-block';
+        this.btnCross.style.display = 'inline-block';
+        this.btnBlock.style.display = 'inline-block';
+        this.btnDodge.style.display = 'inline-block';
+        this.btnSuper.style.display = 'inline-block';
+
+        this.instructionsHint.innerHTML =
+          'FIGHT! <span class="key-badge">A</span> Jab | <span class="key-badge">D</span> Hook | <span class="key-badge">S</span> Block | <span class="key-badge">W</span> Slip Dodge | <span class="key-badge">SPACE</span> Super!';
+
+        this.sfx.speak('Round one, fight!');
+      }
+
+      // Combat Actions
+      playerJab() {
+        if (this.state !== STATE.BOUT_ACTIVE) return;
+        this.hitStopTimer = 0.05; // 50ms hit stop
+        this.sfx.playPunch(false, this.slipCounterActive);
+
+        this.batterRig.leftArm.position.z = -0.75;
+        setTimeout(() => { if (this.batterRig) this.batterRig.leftArm.position.z = 0; }, 130);
+
+        const isBlocked = this.aiCurrentAction === 'block';
+        const isCrit = this.slipCounterActive;
+        const baseDmg = isBlocked ? 4 : (isCrit ? 22 : 12);
+        const comboMult = 1.0 + (this.playerCombo * 0.1);
+        const damage = Math.round(baseDmg * comboMult);
+
+        this.enemyHP = Math.max(0, this.enemyHP - damage);
+
+        if (isBlocked) {
+          this.sfx.playBlock();
+          this.spawnCombatText('BLOCKED! -' + damage, '#00f0ff');
+        } else {
+          this.playerCombo++;
+          this.spawnHitSparks(new THREE.Vector3(0, 1.4, -1.2), 10, isCrit ? 0xffe500 : 0x00f0ff);
+          this.spawnCombatText((isCrit ? 'CRITICAL! +' : '+') + damage, isCrit ? '#ffe500' : '#ffffff');
+          this.pitcherRig.headGroup.rotation.x = -0.3;
+          setTimeout(() => { if (this.pitcherRig) this.pitcherRig.headGroup.rotation.x = 0; }, 120);
+          this.triggerShake();
+        }
+
+        this.slipCounterActive = false;
+        this.playerSuperCharge = Math.min(100, this.playerSuperCharge + 12);
+        this.checkBoutCondition();
+        this.updateFightUI();
+      }
+
+      playerCross() {
+        if (this.state !== STATE.BOUT_ACTIVE) return;
+        this.hitStopTimer = 0.08; // 80ms hit stop
+        this.sfx.playPunch(true, this.slipCounterActive);
+
+        this.batterRig.rightArm.position.z = -0.9;
+        this.batterRig.torsoGroup.rotation.y = 0.4;
+        setTimeout(() => {
+          if (this.batterRig) {
+            this.batterRig.rightArm.position.z = 0;
+            this.batterRig.torsoGroup.rotation.y = 0;
+          }
+        }, 180);
+
+        const isBlocked = this.aiCurrentAction === 'block';
+        const isCrit = this.slipCounterActive;
+        let damage = isBlocked ? 8 : (isCrit ? 42 : 25);
+        if (!isBlocked && this.aiCurrentAction === 'block') {
+          damage += 15;
+          this.spawnCombatText('GUARD CRUSH!', '#ff1850');
+        }
+
+        const comboMult = 1.0 + (this.playerCombo * 0.1);
+        damage = Math.round(damage * comboMult);
+        this.enemyHP = Math.max(0, this.enemyHP - damage);
+
+        if (isBlocked) {
+          this.sfx.playBlock();
+          this.spawnCombatText('BLOCKED! -' + damage, '#00f0ff');
+        } else {
+          this.playerCombo++;
+          this.spawnHitSparks(new THREE.Vector3(0.2, 1.4, -1.2), 20, 0xff1850);
+          this.spawnCombatText((isCrit ? 'CRITICAL HOOK! +' : 'HOOK! +') + damage, '#ff1850');
+          this.pitcherRig.headGroup.rotation.y = -0.45;
+          setTimeout(() => { if (this.pitcherRig) this.pitcherRig.headGroup.rotation.y = 0; }, 180);
+          this.triggerShake();
+          this.flashScreen();
+        }
+
+        this.slipCounterActive = false;
+        this.playerSuperCharge = Math.min(100, this.playerSuperCharge + 22);
+        this.checkBoutCondition();
+        this.updateFightUI();
+      }
+
+      playerBlock(active) {
+        this.isPlayerBlocking = active;
+        if (active) {
+          this.batterRig.leftArm.position.set(-0.25, 0.45, -0.35);
+          this.batterRig.rightArm.position.set(0.25, 0.45, -0.35);
+        } else {
+          this.batterRig.leftArm.position.set(-0.5, 0.28, 0);
+          this.batterRig.rightArm.position.set(0.5, 0.28, 0);
+        }
+      }
+
+      playerDodge() {
+        if (this.state !== STATE.BOUT_ACTIVE || this.isPlayerDodging) return;
+        this.isPlayerDodging = true;
+        this.batterRig.torsoGroup.position.x = -0.65;
+
+        // Perfect timing slip counter check
+        if (this.aiCurrentAction === 'jab' || this.aiCurrentAction === 'hook') {
+          this.slipCounterActive = true;
+          this.spawnCombatText('SLIP COUNTER READY!', '#ffe500');
+          this.flashScreen();
+          this.sfx.speak('Slip counter!');
+        }
+
+        setTimeout(() => {
+          if (this.batterRig) {
+            this.batterRig.torsoGroup.position.x = 0;
+            this.isPlayerDodging = false;
+          }
+        }, 340);
+      }
+
+      playerSuperPunch() {
+        if (this.state !== STATE.BOUT_ACTIVE || this.playerSuperCharge < 80) return;
+        this.playerSuperCharge = 0;
+        this.hitStopTimer = 0.15; // Dramatic 150ms hit stop
+        this.sfx.playPunch(true, true);
+        this.sfx.playCheer();
+        this.sfx.speak('Super Knockout Punch!');
+
+        this.batterRig.rightArm.position.set(0, 0.85, -0.95);
+        this.batterRig.torsoGroup.position.y = 1.5;
+
+        const damage = 50;
+        this.enemyHP = Math.max(0, this.enemyHP - damage);
+        this.spawnHitSparks(new THREE.Vector3(0, 1.5, -1.2), 35, 0xffe500);
+        this.spawnCombatText('GRAND SLAM SUPER! +' + damage, '#ffe500');
+        this.triggerShake();
+        this.flashScreen();
+
+        setTimeout(() => {
+          if (this.batterRig) {
+            this.batterRig.rightArm.position.set(0.5, 0.28, 0);
+            this.batterRig.torsoGroup.position.y = 1.0;
+          }
+        }, 320);
+
+        this.checkBoutCondition();
+        this.updateFightUI();
+      }
+
+      updateAI(dt) {
+        this.aiActionTimer -= dt;
+        if (this.aiActionTimer <= 0) {
+          const aiDelay = this.difficulty === 'allstar' ? 0.7 : (this.difficulty === 'rookie' ? 1.3 : 1.0);
+          this.aiActionTimer = aiDelay + Math.random() * 0.5;
+          const roll = Math.random();
+
+          if (roll < 0.38) {
+            this.aiCurrentAction = 'jab';
+            this.pitcherRig.leftArm.position.z = 0.75;
+            setTimeout(() => {
+              if (this.pitcherRig) {
+                this.pitcherRig.leftArm.position.z = 0;
+                this.aiCurrentAction = 'idle';
+              }
+            }, 180);
+
+            if (this.isPlayerDodging) {
+              this.spawnCombatText('DODGED!', '#00f0ff');
+            } else if (this.isPlayerBlocking) {
+              this.sfx.playBlock();
+              this.playerHP = Math.max(0, this.playerHP - 3);
+              this.spawnCombatText('BLOCKED! -3', '#00f0ff');
+            } else {
+              this.sfx.playPunch(false);
+              this.playerCombo = 0; // Combo reset on taking damage
+              this.playerHP = Math.max(0, this.playerHP - 11);
+              this.spawnHitSparks(new THREE.Vector3(0, 1.4, 0.8), 8, 0xff1850);
+              this.spawnCombatText('-11', '#ff1850');
+              this.triggerShake();
+            }
+          } else if (roll < 0.68) {
+            this.aiCurrentAction = 'hook';
+            this.pitcherRig.rightArm.position.z = 0.9;
+            setTimeout(() => {
+              if (this.pitcherRig) {
+                this.pitcherRig.rightArm.position.z = 0;
+                this.aiCurrentAction = 'idle';
+              }
+            }, 240);
+
+            if (this.isPlayerDodging) {
+              this.spawnCombatText('DODGED!', '#00f0ff');
+            } else if (this.isPlayerBlocking) {
+              this.sfx.playBlock();
+              this.playerHP = Math.max(0, this.playerHP - 6);
+              this.spawnCombatText('BLOCKED! -6', '#00f0ff');
+            } else {
+              this.sfx.playPunch(true);
+              this.playerCombo = 0;
+              this.playerHP = Math.max(0, this.playerHP - 22);
+              this.spawnHitSparks(new THREE.Vector3(0, 1.4, 0.8), 16, 0xff1850);
+              this.spawnCombatText('-22 HEAVY!', '#ff1850');
+              this.triggerShake();
+              this.flashScreen();
+            }
+          } else {
+            this.aiCurrentAction = 'block';
+            this.pitcherRig.leftArm.position.set(-0.25, 0.45, 0.35);
+            this.pitcherRig.rightArm.position.set(0.25, 0.45, 0.35);
+            setTimeout(() => {
+              if (this.pitcherRig) {
+                this.pitcherRig.leftArm.position.set(-0.5, 0.28, 0);
+                this.pitcherRig.rightArm.position.set(0.5, 0.28, 0);
+                this.aiCurrentAction = 'idle';
+              }
+            }, 600);
+          }
+
+          this.checkBoutCondition();
+          this.updateFightUI();
+        }
+      }
+
+      checkBoutCondition() {
+        if (this.enemyHP <= 0 || this.playerHP <= 0) {
+          this.transitionTo(STATE.BOUT_DECISION);
+        }
+      }
+
+      updateFightUI() {
+        this.playerHpFill.style.width = Math.max(0, this.playerHP) + '%';
+        this.playerHpGhost.style.width = Math.max(0, this.playerHPGhost) + '%';
+        this.playerHpTxt.textContent = Math.round(this.playerHP) + ' HP';
+
+        this.enemyHpFill.style.width = Math.max(0, this.enemyHP) + '%';
+        this.enemyHpGhost.style.width = Math.max(0, this.enemyHPGhost) + '%';
+        this.enemyHpTxt.textContent = Math.round(this.enemyHP) + ' HP';
+
+        this.roundClock.textContent = Math.ceil(this.boutTimer);
+
+        if (this.playerCombo >= 2) {
+          this.comboMeter.classList.add('show');
+          const mult = (1.0 + this.playerCombo * 0.1).toFixed(1);
+          this.comboMeter.textContent = `COMBO ${this.playerCombo}x • ${mult}x DAMAGE!`;
+        } else {
+          this.comboMeter.classList.remove('show');
+        }
+
+        if (this.playerSuperCharge >= 80) {
+          this.btnSuper.style.boxShadow = '0 0 25px #ffe500';
+          this.btnSuper.textContent = '⭐ SUPER READY!';
+        } else {
+          this.btnSuper.style.boxShadow = 'none';
+          this.btnSuper.textContent = '⭐ SUPER (' + this.playerSuperCharge + '%)';
+        }
+      }
+
+      setupBoutDecision() {
+        this.fightHud.style.display = 'none';
+        this.sfx.playBell();
+
+        let outcome = 'OUT';
+        let basesToAdvance = 0;
+
+        if (this.playerHP <= 0) {
+          outcome = "KNOCKED OUT! YOU'RE OUT!";
+          basesToAdvance = 0;
+          this.sfx.playBuzzer();
+          this.sfx.speak("Batter down, you're out!");
+          this.batterRig.root.rotation.x = Math.PI / 2;
+          this.batterRig.root.position.y = 0.2;
+        } else if (this.enemyHP <= 0) {
+          if (this.playerHP >= 75) {
+            outcome = 'CLEAN KO! HOME RUN!!!';
+            basesToAdvance = 4;
+            this.sfx.playCheer();
+            this.sfx.speak('Clean knockout! That ball is outta here, grand slam!');
+          } else {
+            outcome = 'KNOCKOUT! TRIPLE (3 BASES)!';
+            basesToAdvance = 3;
+            this.sfx.playCheer();
+            this.sfx.speak('Down goes the pitcher, triple base hit!');
+          }
+          this.pitcherRig.root.rotation.x = -Math.PI / 2;
+          this.pitcherRig.root.position.y = 0.2;
+        } else {
+          if (this.enemyHP <= 25) {
+            outcome = 'DECISION WIN! DOUBLE (2 BASES)!';
+            basesToAdvance = 2;
+            this.sfx.playCheer();
+            this.sfx.speak('Heavy damage decision, double base hit!');
+          } else if (this.enemyHP < this.playerHP) {
+            outcome = 'DECISION WIN! SINGLE (1 BASE)!';
+            basesToAdvance = 1;
+            this.sfx.playCheer();
+            this.sfx.speak('Decision win, single base hit!');
+          } else {
+            outcome = "DECISION LOSS! YOU'RE OUT!";
+            basesToAdvance = 0;
+            this.sfx.playBuzzer();
+            this.sfx.speak("Decision loss, you're out!");
+          }
+        }
+
+        this.awardedBases = basesToAdvance;
+        this.showCenterBanner(outcome, 'BOUT RESOLUTION');
+
+        setTimeout(() => {
+          if (this.awardedBases > 0) {
+            this.transitionTo(STATE.DIAMOND_RUN);
+          } else {
+            this.recordOut('BOUT DEFEAT');
+          }
+        }, 2200);
+      }
+
+      setupDiamondRun() {
+        this.setCameraView('overview');
+        this.boxingRingGroup.position.y = -6;
+        this.fightSpotlight.visible = false;
+        this.stateTimer = 3.2;
+
+        this.advanceBases(this.awardedBases);
+
+        this.instructionsHint.innerHTML =
+          'Advancing runners! <strong>+' + this.awardedBases + ' Base hit!</strong>';
+      }
+
+      advanceBases(hitType) {
+        let runsScoredThisPlay = 0;
+
+        if (hitType === 4) {
+          const runnersOn = this.bases.filter(b => b).length;
+          runsScoredThisPlay = runnersOn + 1;
+          this.bases = [false, false, false];
+          this.sfx.playCheer();
+          this.spawnHitSparks(new THREE.Vector3(0, 5, -10), 60, 0xffe500);
+        } else {
+          const newBases = [false, false, false];
+          for (let i = 2; i >= 0; i--) {
+            if (this.bases[i]) {
+              const target = i + hitType;
+              if (target >= 3) {
+                runsScoredThisPlay++;
+              } else {
+                newBases[target] = true;
+              }
+            }
+          }
+          if (hitType <= 3) {
+            newBases[hitType - 1] = true;
+          }
+          this.bases = newBases;
+        }
+
+        this.runs += runsScoredThisPlay;
+        this.strikes = 0;
+        this.updateScoreboard();
+
+        this.runnerMeshes.forEach((rm, idx) => {
+          if (this.bases[idx]) {
+            rm.root.visible = true;
+            rm.root.position.copy(this.basePositions[idx]);
+          } else {
+            rm.root.visible = false;
+          }
+        });
+      }
+
+      recordOut(reason) {
+        this.outs++;
+        this.strikes = 0;
+        this.updateScoreboard();
+
+        if (this.outs >= 3) {
+          this.showCenterBanner('3 OUTS - SIDE RETIRED!', 'INNING ' + this.inning + ' COMPLETE');
+          this.sfx.speak('Three outs, side retired!');
+          setTimeout(() => {
+            this.outs = 0;
+            this.inning++;
+            this.bases = [false, false, false];
+            this.runnerMeshes.forEach(rm => rm.root.visible = false);
+            this.updateScoreboard();
+            this.transitionTo(STATE.READY_PITCH);
+          }, 2400);
+        } else {
+          setTimeout(() => {
+            this.transitionTo(STATE.READY_PITCH);
+          }, 1800);
+        }
+      }
+
+      updateScoreboard() {
+        this.hudRuns.textContent = this.runs;
+        this.hudInning.textContent = 'TOP ' + this.inning;
+
+        this.outDots.forEach((dot, idx) => {
+          if (idx < this.outs) {
+            dot.classList.add('active');
+          } else {
+            dot.classList.remove('active');
+          }
+        });
+
+        this.baseMarkers.forEach((m, idx) => {
+          if (this.bases[idx]) {
+            m.classList.add('active');
+          } else {
+            m.classList.remove('active');
+          }
+        });
+      }
+
+      setCameraView(mode) {
+        this.cameraMode = mode;
+        if (mode === 'behind') {
+          this.targetCamPos.set(0.6, 2.4, 3.8);
+          this.targetCamLookAt.set(0, 1.6, -18.4);
+        } else if (mode === 'side') {
+          this.targetCamPos.set(2.8, 1.8, 0.4);
+          this.targetCamLookAt.set(0, 1.4, -0.2);
+        } else if (mode === 'overview') {
+          this.targetCamPos.set(0, 28, 14);
+          this.targetCamLookAt.set(0, 0, -12);
+        }
+      }
+
+      showCenterBanner(title, sub) {
+        this.bannerText.textContent = title;
+        this.bannerSub.textContent = sub;
+        this.centerBanner.classList.add('show');
+        setTimeout(() => {
+          this.centerBanner.classList.remove('show');
+        }, 1800);
+      }
+
+      // Main Loop Update
+      update(dt) {
+        // Hit stop freeze frame
+        if (this.hitStopTimer > 0) {
+          this.hitStopTimer -= dt;
+          return;
+        }
+
+        // Camera lerp
+        this.camera.position.lerp(this.targetCamPos, dt * 5.0);
+        this.currentCamLookAt.lerp(this.targetCamLookAt, dt * 5.0);
+        this.camera.lookAt(this.currentCamLookAt);
+
+        // Ghost HP catch-up
+        if (this.playerHPGhost > this.playerHP) {
+          this.playerHPGhost -= dt * 35;
+          if (this.playerHPGhost < this.playerHP) this.playerHPGhost = this.playerHP;
+          this.playerHpGhost.style.width = Math.max(0, this.playerHPGhost) + '%';
+        }
+        if (this.enemyHPGhost > this.enemyHP) {
+          this.enemyHPGhost -= dt * 35;
+          if (this.enemyHPGhost < this.enemyHP) this.enemyHPGhost = this.enemyHP;
+          this.enemyHpGhost.style.width = Math.max(0, this.enemyHPGhost) + '%';
+        }
+
+        const time = this.clock.getElapsedTime();
+
+        // Cheering fan crowd bounce
+        if (this.fanCrowd) {
+          for (let i = 0; i < this.fanCrowd.length; i += 2) {
+            const f = this.fanCrowd[i];
+            f.position.y = f.userData.initialY + Math.sin(time * 7 + f.userData.phase) * 0.28;
+          }
+        }
+
+        // Particle update
+        for (const p of this.particlePool) {
+          if (p.mesh.visible) {
+            p.life += dt;
+            if (p.life >= p.maxLife) {
+              p.mesh.visible = false;
+            } else {
+              p.mesh.position.addScaledVector(p.vel, dt);
+              p.vel.y -= 10.5 * dt;
+            }
+          }
+        }
+
+        // Live Jumbotron refresh every few frames
+        if (Math.floor(time * 30) % 6 === 0) {
+          this.updateJumbotron();
+        }
+
+        switch (this.state) {
+          case STATE.READY_PITCH:
+            this.stateTimer -= dt;
+            this.pitcherRig.torsoGroup.rotation.y = Math.sin(time * 3.5) * 0.18;
+            if (this.stateTimer <= 0) {
+              this.transitionTo(STATE.PITCH_IN_FLIGHT);
+            }
+            break;
+
+          case STATE.PITCH_IN_FLIGHT:
+            this.pitchProgress += dt / this.pitchDuration;
+
+            const startPos = new THREE.Vector3(0, 1.8, -18.4);
+            const endPos = new THREE.Vector3(0, 1.2, 0.4);
+            const curPos = new THREE.Vector3().lerpVectors(startPos, endPos, this.pitchProgress);
+
+            const curveOffset = Math.sin(this.pitchProgress * Math.PI) * this.pitchCurve.x;
+            curPos.x += curveOffset;
+            this.ballMesh.position.copy(curPos);
+
+            const scaleFactor = Math.max(0.2, (1 - this.pitchProgress));
+            const reticleSize = 66 + scaleFactor * 135;
+            this.pitchReticle.style.width = reticleSize + 'px';
+            this.pitchReticle.style.height = reticleSize + 'px';
+
+            if (this.pitchProgress >= 1.05 && !this.hasSwung) {
+              this.pitchGauge.style.display = 'none';
+              this.sfx.playBuzzer();
+              this.strikes++;
+              this.showCenterBanner('CALLED STRIKE!', 'COUNT: ' + this.strikes + ' STRIKES');
+              if (this.strikes >= 3) {
+                this.recordOut('CALLED STRIKE THREE!');
+              } else {
+                setTimeout(() => this.transitionTo(STATE.READY_PITCH), 1400);
+              }
+            }
+            break;
+
+          case STATE.CLASH_TRANSITION:
+            this.stateTimer -= dt;
+            this.camera.position.x = Math.cos(time * 2.2) * 3.6;
+            this.camera.position.z = Math.sin(time * 2.2) * 3.6;
+            if (this.stateTimer <= 0) {
+              this.transitionTo(STATE.BOUT_ACTIVE);
+            }
+            break;
+
+          case STATE.BOUT_ACTIVE:
+            this.boutTimerAccumulator += dt;
+            if (this.boutTimerAccumulator >= 1.0) {
+              this.boutTimer -= 1;
+              this.boutTimerAccumulator = 0;
+              this.updateFightUI();
+              if (this.boutTimer <= 0) {
+                this.transitionTo(STATE.BOUT_DECISION);
+              }
+            }
+
+            this.batterRig.torsoGroup.position.y = 1.0 + Math.abs(Math.sin(time * 8)) * 0.09;
+            this.pitcherRig.torsoGroup.position.y = 1.0 + Math.abs(Math.cos(time * 8)) * 0.09;
+
+            this.updateAI(dt);
+            break;
+
+          case STATE.DIAMOND_RUN:
+            this.stateTimer -= dt;
+            this.runnerMeshes.forEach((rm) => {
+              if (rm.root.visible) {
+                rm.torsoGroup.position.y = 1.0 + Math.abs(Math.sin(time * 12)) * 0.14;
+                rm.leftLeg.rotation.x = Math.sin(time * 12) * 0.65;
+                rm.rightLeg.rotation.x = -Math.sin(time * 12) * 0.65;
+              }
+            });
+
+            if (this.stateTimer <= 0) {
+              this.transitionTo(STATE.READY_PITCH);
+            }
+            break;
+        }
+      }
+
+      render() {
+        if (this.isWebGL && this.renderer) {
+          this.renderer.render(this.scene, this.camera);
+        } else if (this.canvas2d) {
+          this.renderCanvas2D();
+        }
+      }
+
+      // High-End 2.5D Fallback Renderer
+      renderCanvas2D() {
+        const ctx = this.canvas2d;
+        const w = this.canvas2dElem.width;
+        const h = this.canvas2dElem.height;
+        const time = this.clock.getElapsedTime();
+
+        ctx.fillStyle = '#060914';
+        ctx.fillRect(0, 0, w, h);
+
+        if (this.state === STATE.READY_PITCH || this.state === STATE.PITCH_IN_FLIGHT) {
+          const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.6);
+          skyGrad.addColorStop(0, '#090f22');
+          skyGrad.addColorStop(1, '#1b2a50');
+          ctx.fillStyle = skyGrad;
+          ctx.fillRect(0, 0, w, h * 0.55);
+
+          // Stadium Lights & Jumbotron in 2D
+          ctx.fillStyle = '#101930';
+          ctx.fillRect(w * 0.25, h * 0.22, w * 0.5, h * 0.2);
+          ctx.strokeStyle = '#00f0ff';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(w * 0.25, h * 0.22, w * 0.5, h * 0.2);
+
+          ctx.fillStyle = '#ff1850';
+          ctx.font = 'bold 24px Impact';
+          ctx.textAlign = 'center';
+          ctx.fillText('SLUGGER BRAWL JUMBOTRON', w / 2, h * 0.30);
+          ctx.fillStyle = '#ffe500';
+          ctx.font = 'bold 18px Impact';
+          ctx.fillText(this.pitchSpeed + ' MPH PITCH INBOUND', w / 2, h * 0.36);
+
+          // Floodlight beams
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+          ctx.beginPath();
+          ctx.moveTo(w * 0.1, h * 0.1);
+          ctx.lineTo(w * 0.4, h * 0.7);
+          ctx.lineTo(0, h * 0.7);
+          ctx.closePath();
+          ctx.fill();
+
+          // Field
+          const fieldGrad = ctx.createLinearGradient(0, h * 0.45, 0, h);
+          fieldGrad.addColorStop(0, '#1c6a25');
+          fieldGrad.addColorStop(1, '#278b32');
+          ctx.fillStyle = fieldGrad;
+          ctx.fillRect(0, h * 0.45, w, h * 0.55);
+
+          // Infield Dirt
+          ctx.fillStyle = '#9b5f34';
+          ctx.beginPath();
+          ctx.moveTo(w / 2, h * 0.5);
+          ctx.lineTo(w * 0.85, h * 0.78);
+          ctx.lineTo(w / 2, h * 0.98);
+          ctx.lineTo(w * 0.15, h * 0.78);
+          ctx.closePath();
+          ctx.fill();
+
+          const moundY = h * 0.52;
+          ctx.fillStyle = '#7a4620';
+          ctx.beginPath();
+          ctx.ellipse(w / 2, moundY, 45, 14, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Pitcher
+          const pWindupOffset = Math.sin(time * 6) * 4;
+          ctx.fillStyle = '#d42239';
+          ctx.fillRect(w / 2 - 12, moundY - 45 + pWindupOffset, 24, 32);
+          ctx.fillStyle = '#e5ac89';
+          ctx.beginPath();
+          ctx.arc(w / 2, moundY - 55 + pWindupOffset, 12, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Batter
+          const bSwing = this.hasSwung ? 25 : 0;
+          ctx.fillStyle = '#0077ff';
+          ctx.fillRect(w * 0.42 - bSwing, h * 0.78, 38, 55);
+          ctx.fillStyle = '#e5ac89';
+          ctx.beginPath();
+          ctx.arc(w * 0.42 + 19 - bSwing, h * 0.74, 16, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.save();
+          ctx.translate(w * 0.42 + 35 - bSwing, h * 0.82);
+          ctx.rotate(this.hasSwung ? -Math.PI * 0.6 : Math.PI * 0.25);
+          ctx.fillStyle = '#ba854d';
+          ctx.fillRect(-6, -45, 12, 50);
+          ctx.restore();
+
+          if (this.state === STATE.PITCH_IN_FLIGHT) {
+            const ballX = (w / 2) + Math.sin(this.pitchProgress * Math.PI) * (this.pitchCurve.x * 60);
+            const ballY = moundY + (h * 0.94 - moundY) * this.pitchProgress;
+            const ballRadius = 6 + (this.pitchProgress * 22);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#d42239';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+
+        } else if (this.state === STATE.CLASH_TRANSITION || this.state === STATE.BOUT_ACTIVE || this.state === STATE.BOUT_DECISION) {
+          ctx.fillStyle = '#0a0f1d';
+          ctx.fillRect(0, 0, w, h);
+
+          const spotGrad = ctx.createRadialGradient(w / 2, h / 2, 40, w / 2, h / 2, h * 0.7);
+          spotGrad.addColorStop(0, 'rgba(255, 24, 80, 0.28)');
+          spotGrad.addColorStop(0.6, 'rgba(0, 240, 255, 0.12)');
+          spotGrad.addColorStop(1, 'rgba(4, 7, 16, 0.95)');
+          ctx.fillStyle = spotGrad;
+          ctx.fillRect(0, 0, w, h);
+
+          // Ropes
+          ctx.strokeStyle = '#00f0ff';
+          ctx.lineWidth = 4;
+          [h * 0.28, h * 0.45, h * 0.62].forEach(ry => {
+            ctx.beginPath();
+            ctx.moveTo(w * 0.05, ry);
+            ctx.lineTo(w * 0.95, ry);
+            ctx.stroke();
+          });
+
+          // Opponent
+          const oppBounce = Math.sin(time * 8) * 8;
+          const oppX = w / 2;
+          const oppY = h * 0.44 + oppBounce;
+
+          ctx.fillStyle = '#d42239';
+          ctx.fillRect(oppX - 35, oppY - 40, 70, 80);
+          ctx.fillStyle = '#e5ac89';
+          ctx.beginPath();
+          ctx.arc(oppX, oppY - 65, 26, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Player Gloves
+          const pDodgeOffset = this.isPlayerDodging ? -70 : 0;
+          ctx.fillStyle = '#ff1850';
+          ctx.beginPath();
+          ctx.arc(w * 0.36 + pDodgeOffset, h * 0.82, 34, 0, Math.PI * 2);
+          ctx.arc(w * 0.64 + pDodgeOffset, h * 0.82, 38, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (this.isPlayerBlocking) {
+            ctx.fillStyle = 'rgba(0, 240, 255, 0.35)';
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(w / 2 + pDodgeOffset, h * 0.75, 80, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          }
+
+        } else if (this.state === STATE.DIAMOND_RUN) {
+          ctx.fillStyle = '#1c6a25';
+          ctx.fillRect(0, 0, w, h);
+
+          ctx.fillStyle = '#9b5f34';
+          ctx.beginPath();
+          ctx.moveTo(w / 2, h * 0.2);
+          ctx.lineTo(w * 0.8, h * 0.5);
+          ctx.lineTo(w / 2, h * 0.8);
+          ctx.lineTo(w * 0.2, h * 0.5);
+          ctx.closePath();
+          ctx.fill();
+
+          const basesCoords = [
+            { x: w * 0.8, y: h * 0.5 },
+            { x: w / 2, y: h * 0.2 },
+            { x: w * 0.2, y: h * 0.5 },
+            { x: w / 2, y: h * 0.8 }
+          ];
+
+          basesCoords.forEach((b, idx) => {
+            const isOccupied = idx < 3 && this.bases[idx];
+            ctx.fillStyle = isOccupied ? '#ffe500' : '#ffffff';
+            ctx.fillRect(b.x - 15, b.y - 15, 30, 30);
+          });
+        }
+      }
+
+      setupInputHandlers() {
+        window.addEventListener('keydown', (e) => {
+          if (e.repeat) return;
+          const key = e.key.toLowerCase();
+
+          if (key === ' ' && this.state === STATE.PITCH_IN_FLIGHT) {
+            this.playerSwing();
+          }
+
+          if (this.state === STATE.BOUT_ACTIVE) {
+            if (key === 'a' || key === 'arrowleft') this.playerJab();
+            if (key === 'd' || key === 'arrowright') this.playerCross();
+            if (key === 's' || key === 'arrowdown') this.playerBlock(true);
+            if (key === 'w' || key === 'arrowup') this.playerDodge();
+            if (key === ' ' || key === 'enter') this.playerSuperPunch();
+          }
+        });
+
+        window.addEventListener('keyup', (e) => {
+          const key = e.key.toLowerCase();
+          if ((key === 's' || key === 'arrowdown') && this.state === STATE.BOUT_ACTIVE) {
+            this.playerBlock(false);
+          }
+        });
+
+        this.btnSwing.addEventListener('click', () => this.playerSwing());
+        this.btnJab.addEventListener('click', () => this.playerJab());
+        this.btnCross.addEventListener('click', () => this.playerCross());
+        this.btnBlock.addEventListener('mousedown', () => this.playerBlock(true));
+        this.btnBlock.addEventListener('mouseup', () => this.playerBlock(false));
+        this.btnBlock.addEventListener('touchstart', (e) => { e.preventDefault(); this.playerBlock(true); });
+        this.btnBlock.addEventListener('touchend', (e) => { e.preventDefault(); this.playerBlock(false); });
+        this.btnDodge.addEventListener('click', () => this.playerDodge());
+        this.btnSuper.addEventListener('click', () => this.playerSuperPunch());
+
+        // Header controls
+        const btnAudio = document.getElementById('btn-audio');
+        btnAudio.addEventListener('click', () => {
+          this.sfx.init();
+          this.sfx.enabled = !this.sfx.enabled;
+          this.sfx.announcerEnabled = this.sfx.enabled;
+          btnAudio.textContent = this.sfx.enabled ? '🔊 AUDIO' : '🔇 MUTED';
+        });
+
+        const btnCam = document.getElementById('btn-cam');
+        btnCam.addEventListener('click', () => {
+          const modes = ['behind', 'side', 'overview'];
+          const next = modes[(modes.indexOf(this.cameraMode) + 1) % modes.length];
+          this.setCameraView(next);
+          btnCam.textContent = '🎥 ' + next.toUpperCase();
+        });
+
+        const btnHelp = document.getElementById('btn-help');
+        const modal = document.getElementById('start-modal');
+        btnHelp.addEventListener('click', () => {
+          modal.classList.toggle('hidden');
+        });
+
+        // Difficulty selector buttons
+        document.querySelectorAll('.diff-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            this.difficulty = btn.dataset.diff;
+          });
+        });
+
+        document.getElementById('btn-play').addEventListener('click', () => {
+          this.sfx.init();
+          modal.classList.add('hidden');
+          this.sfx.speak('Play ball!');
+          this.transitionTo(STATE.READY_PITCH);
+        });
+      }
+
+      start() {
+        this.setupThreeScene();
+        this.setupInputHandlers();
+
+        const animate = () => {
+          requestAnimationFrame(animate);
+          const dt = Math.min(this.clock.getDelta(), 0.1);
+          this.update(dt);
+          this.render();
+        };
+
+        animate();
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const game = new SluggerBrawlGame();
+      game.start();
+    });
+  </script>
+</body>
+</html>
